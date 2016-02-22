@@ -4,16 +4,18 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.*;
-import java.util.Collections;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class RecursiveStream {
+/**
+ * eclipse, phpstorm 에서 CodeIgniter 사용시 editor 에서 auto complete 기능을 제공하는 helper.php 를 생성해 준다
+ */
+public class CiHelper {
 
     static Stream<Path> listFiles(Path path) {
         if (Files.isDirectory(path)) {
             try {
-                return Files.list(path).flatMap(RecursiveStream::listFiles);
+                return Files.list(path).flatMap(CiHelper::listFiles);
             } catch (Exception e) {
                 return Stream.empty();
             }
