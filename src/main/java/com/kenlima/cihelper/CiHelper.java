@@ -119,4 +119,8 @@ public class CiHelper {
         PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:**/" + prefix + "[A-Z]*.php");
         return matcher.matches(p);
     }
+
+    private static boolean fileFiltering2(Path p, String prefix) throws IOException {
+        Files.lines(p);
+    }
 }
