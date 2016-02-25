@@ -3,7 +3,13 @@ package com.kenlima.cihelper;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -24,57 +30,30 @@ public class CiHelper {
         }
     }
 
-    public static void main(String[] args) throws IOException, URISyntaxException {
+    public static void main(String[] args) {
         String resourceName = "cihelper/ci_autocomplete.php.template";
-        URI uri = ClassLoader.getSystemResource(resourceName).toURI();
-        String contents = Files.readAllLines(Paths.get(uri)).stream().collect(Collectors.joining("\n"));
-        StringBuilder cb = new StringBuilder(contents);
+        try {
+            URI uri = ClassLoader.getSystemResource(resourceName).toURI();
 
-        //listFiles(Paths.get(path)).forEach(System.out::println);
-
-        String service = makeProperty("s");
+            String contents = Files.readAllLines(Paths.get(uri)).stream().collect(Collectors.joining("\n"));
+            StringBuilder cb = new StringBuilder(contents);
 
 
-        replaceTemplate(cb, "[SERVICE]", service);
+            //String service = makeProperty("Service_app");
+            //replaceTemplate(cb, "[SERVICE]", service);
 
-        String model = makeProperty("m");
-        replaceTemplate(cb, "[MODEL]", model);
+            String model = makeProperty("CI_Model");
+            replaceTemplate(cb, "[MODEL]", model);
 
-        String manager = makeProperty("mgr");
-        replaceTemplate(cb, "[MANAGER]", manager);
+            //String manager = makeProperty("Manager_app");
+            //replaceTemplate(cb, "[MANAGER]", manager);
+            contents = Files.readAllLines(Paths.get(uri)).stream().collect(Collectors.joining("\n"));
+            Files.write(Paths.get("ci_autocomplete.php"),cb.toString().getBytes());
 
-
-
-        Files.write(Paths.get("ci_autocomplete.php"), cb.toString().getBytes());
-
-        System.out.println(cb.toString());
-
-        /*
-        int idx = contents.indexOf("[SERVICE]");
-        if (idx > -1) {
-            cb.replace(idx, idx + 9, controller);
+            System.out.println(cb.toString());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        idx = contents.indexOf("[SERVICE]", idx + 9);
-
-
-        contents = contents.replaceAll("CONTROLLER", controller);
-
-        System.out.println(contents);
-        String service = makeProperty("s");
-        System.out.println(service);
-        contents = contents.replaceAll("\\[SERVICE\\]", service);
-
-        String model = makeProperty("m");
-        contents = contents.replaceAll("\\[MODEL\\]", service);
-
-
-        String manager = makeProperty("mgr");
-        contents = contents.replaceAll("\\[MANAGER\\]", service);
-
-        System.out.println(contents);
-        */
-
 
     }
 
@@ -89,25 +68,94 @@ public class CiHelper {
         }
     }
 
-    private static String makeProperty(String prefix) {
-        String path = "/Users/jwlee/EclipseProjects/workspace/sales_admin";
-        String content = listFiles(Paths.get(path)).filter(p -> fileFiltering(p, prefix))
-                .map(p -> p.getFileName().toString())
-                .distinct()
-                .map(s -> formatting(s)).collect(Collectors.joining("\n"));
-        content = content + "\n";
+    private static String makeProperty(String serviceType) {
+        //String path = "/Users/jwlee/pdtwork/sales_admin";
+        String path = "/Users/jwlee/wemakeprice/vagrant/wmp/www/gagamel_admin";
+        List<Path> list = listFiles(Paths.get(path)).filter(p -> fileFiltering2(p)).collect(Collectors.toList());
+        List<ClassStruct> classes = list.stream().map(p -> convertClassStruct(p)).collect(Collectors.toList());
+
+
+        Map<String, ArrayList<String>> map = new HashMap<>();
+
+        groupClasses(classes, map);
+
+
+        for (String key : map.keySet()) {
+            System.out.println(key + " : " + map.get(key));
+        }
+
+        String content = map.keySet().stream()
+                .filter(key -> map.get(key).contains(serviceType))
+                .map(key -> formatting(key))
+                .collect(Collectors.joining("\n"));
         return content;
+    }
+
+    private static void groupClasses(List<ClassStruct> classes, Map<String, ArrayList<String>> map) {
+        for (ClassStruct cs : classes) {
+            ArrayList<String> parents = new ArrayList<>();
+            if (cs.getParentClassName() == null || cs.getParentClassName().equals("")) {
+                continue;
+            }
+            parents.add(cs.getParentClassName());
+
+            scan(classes, parents, cs.getParentClassName());
+            map.put(cs.getClassName(), parents);
+
+            /*
+            if(map.containsKey(cs.getClassName())) {
+                map.get(cs.getClassName()).add(cs.getParentClassName());
+            }else{
+                ArrayList<String> ar = new ArrayList<>();
+                ar.add(cs.getParentClassName());
+                map.put(cs.getClassName(), ar);
+            }
+
+            for(ClassStruct cs2 : classes) {
+                if(cs.getParentClassName().equals(cs2.getClassName())) {
+                    map.get(cs.getClassName()).add(cs2.getParentClassName());
+                }else{
+                    aaa(classes, map.get(cs.getClassName()), cs2.getParentClassName());
+                }
+            }
+            */
+        }
+    }
+
+    private static void scan(List<ClassStruct> classes, ArrayList<String> parents, String currCs) {
+        for (ClassStruct cs : classes) {
+            if (cs.getParentClassName() == null || cs.getParentClassName().equals("")) {
+                continue;
+            }
+            if (currCs.equals(cs.getClassName())) {
+                if (!parents.contains(cs.getParentClassName())) {
+                    parents.add(cs.getParentClassName());
+                }
+                scan(classes, parents, cs.getParentClassName());
+                return;
+            }
+        }
+    }
+
+    private static void aaa(List<ClassStruct> classes, ArrayList<String> strings, String parentClassName) {
+        for (ClassStruct cs : classes) {
+            if (cs.getClassName().equals(parentClassName)) {
+                strings.add(cs.getParentClassName());
+            } else {
+                aaa(classes, strings, parentClassName);
+            }
+        }
     }
 
     private static String formatting(String s) {
 
 
         StringBuilder sb = new StringBuilder(s);
-        sb.delete(sb.length() - 4, sb.length());
-        String s2 = sb.toString();
-        sb.setCharAt(0, Character.toUpperCase(sb.charAt(0)));
+        StringBuilder sb2 = new StringBuilder(s);
+
+        sb2.setCharAt(0, Character.toLowerCase(sb2.charAt(0)));
         sb.insert(0, " * @property ");
-        sb.append(" $" + s2);
+        sb.append(" $" + sb2.toString());
 
 
         return sb.toString();
@@ -120,7 +168,71 @@ public class CiHelper {
         return matcher.matches(p);
     }
 
-    private static boolean fileFiltering2(Path p, String prefix) throws IOException {
-        Files.lines(p);
+    private static boolean fileFiltering2(Path p) {
+
+        try (Stream<String> lines = Files.lines(p, Charset.forName("iso8859_1"))) {
+            return lines.anyMatch(s -> s.indexOf("class") == 0);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    private static ClassStruct convertClassStruct(Path p) {
+        ClassStruct cs = null;
+
+        try (Stream<String> lines = Files.lines(p, Charset.forName("iso8859_1")).filter(s -> s.indexOf("class") == 0)) {
+            String line = lines.collect(Collectors.toList()).get(0);
+            String className = "";
+            String parentClassName = "";
+
+
+            String[] slines = line.split(" ");
+            for (int i = 0; i < slines.length; i++) {
+                if (slines[i].trim().equals("class")) {
+                    className = slines[i + 1];
+                } else if (slines[i].trim().equals("extends")) {
+                    parentClassName = slines[i + 1];
+
+                }
+            }
+
+
+            cs = new ClassStruct(className, parentClassName);
+            System.out.println(cs);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return cs;
+    }
+
+    private static ClassStruct convertClassStruct(String s) {
+        int start = s.indexOf("class") + 5;
+
+        int end = 0;
+        String className = "";
+        String parentClassName = "";
+        if ((end = s.indexOf("extends", start)) > -1) {
+            className = s.substring(start, end);
+            start = end + 7;
+            end = s.length() - 1;
+
+            parentClassName = s.substring(start, end);
+        } else {
+            className = s.substring(start);
+        }
+        className = className.trim();
+        parentClassName = parentClassName.trim();
+
+        //System.out.println("class : " + className + ", pclass : " + parentClassName);
+
+
+        ClassStruct cs = new ClassStruct(className, parentClassName);
+        System.out.println(cs);
+        return cs;
+
+
     }
 }
