@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * eclipse, phpstorm 에서 CodeIgniter 사용시 editor 에서 auto complete 기능을 제공하는 helper.php 를 생성해 준다
+ * eclipse, phpstorm 에서 CodeIgniter 사용시 editor 에서 auto complete 기능을 제공하는 php file 을 생성해 준다
  */
 public class CiAutoCompleteMain {
 
@@ -43,6 +43,7 @@ public class CiAutoCompleteMain {
             String manager = makePropertyComment("Manager_app");
             replaceTemplate(cb, "[MANAGER]", manager);
             */
+
             Files.write(Paths.get("ci_autocomplete_" + TEMPLATE_TYPE + ".php"), templateStrBuilder.toString().getBytes());
 
         } catch (Exception e) {
@@ -122,29 +123,12 @@ public class CiAutoCompleteMain {
             parents.add(cs.getParentClassName());
 
             scan(classes, parents, cs.getParentClassName());
+
             map.put(cs.getClassName(), parents);
-
-            /*
-            if(map.containsKey(cs.getClassName())) {
-                map.get(cs.getClassName()).add(cs.getParentClassName());
-            }else{
-                ArrayList<String> ar = new ArrayList<>();
-                ar.add(cs.getParentClassName());
-                map.put(cs.getClassName(), ar);
-            }
-
-            for(ClassName cs2 : classes) {
-                if(cs.getParentClassName().equals(cs2.getClassName())) {
-                    map.get(cs.getClassName()).add(cs2.getParentClassName());
-                }else{
-                    aaa(classes, map.get(cs.getClassName()), cs2.getParentClassName());
-                }
-            }
-            */
         }
     }
 
-    private static void scan(List<ClassName> classeStructList, ArrayList<String> parentClassNameList, String currCs) {
+    public void scan(List<ClassName> classeStructList, ArrayList<String> parentClassNameList, String currCs) {
         for (ClassName cs : classeStructList) {
             if (cs.getParentClassName() == null || cs.getParentClassName().equals("")) {
                 continue;
@@ -159,7 +143,7 @@ public class CiAutoCompleteMain {
         }
     }
 
-    private static boolean containsWithIgnoreCase(ArrayList<String> arr, String str) {
+    public boolean containsWithIgnoreCase(ArrayList<String> arr, String str) {
         for (String s : arr) {
             if (s.equalsIgnoreCase(str)) {
                 return true;
@@ -168,7 +152,7 @@ public class CiAutoCompleteMain {
         return false;
     }
 
-    private static String formatting(String className) {
+    public String formatting(String className) {
 
         StringBuilder sb = new StringBuilder(className);
         if (TEMPLATE_TYPE.equals("admin")) {
@@ -188,7 +172,7 @@ public class CiAutoCompleteMain {
 
     }
 
-    private boolean isClass(Path p) {
+    public boolean isClass(Path p) {
 
         try (Stream<String> lines = Files.lines(p, Charset.forName("iso8859_1"))) {
             return lines.anyMatch(s -> s.indexOf("class ") == 0);
@@ -198,7 +182,7 @@ public class CiAutoCompleteMain {
         return false;
     }
 
-    private static ClassName convertClassStruct(Path p) {
+    public ClassName convertClassStruct(Path p) {
         ClassName cs = null;
 
         try (Stream<String> lines = Files.lines(p, Charset.forName("iso8859_1")).filter(s -> s.indexOf("class") == 0)) {
