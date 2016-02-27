@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.*;
-import java.util.*;
-import java.util.function.Predicate;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -17,8 +19,36 @@ public class CiHelper {
     /**
      * admin, mng, biz, sales
      */
-    public static final String TEMPLETE_TYPE = "admin";
+    public static final String TEMPLATE_TYPE = "admin";
     private static final String SOURCE_PATH = "/Users/jwlee/wemakeprice/vagrant/wmp/www/gagamel_admin";
+
+
+    public static void main(String[] args) {
+        String resourceName = "cihelper/ci_autocomplete_" + TEMPLATE_TYPE + ".php.template";
+        try {
+            URI uri = ClassLoader.getSystemResource(resourceName).toURI();
+
+            String templateString = Files.readAllLines(Paths.get(uri)).stream().collect(Collectors.joining("\n"));
+            StringBuilder templateStrBuilder = new StringBuilder(templateString);
+
+
+            //String service = makePropertyComment("Service_app");
+            //replaceTemplate(cb, "[SERVICE]", service);
+
+            String model = makePropertyComment("Model");
+            replaceTemplate(templateStrBuilder, "[MODEL]", model);
+
+           /*
+            String manager = makePropertyComment("Manager_app");
+            replaceTemplate(cb, "[MANAGER]", manager);
+            */
+            Files.write(Paths.get("ci_autocomplete_" + TEMPLATE_TYPE + ".php"), templateStrBuilder.toString().getBytes());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
 
     static Stream<Path> listFiles(Path path) {
         if (Files.isDirectory(path)) {
@@ -32,50 +62,21 @@ public class CiHelper {
         }
     }
 
-    public static void main(String[] args) {
-        String resourceName = "cihelper/ci_autocomplete_" + TEMPLETE_TYPE + ".php.template";
-        try {
-            URI uri = ClassLoader.getSystemResource(resourceName).toURI();
-
-            String contents = Files.readAllLines(Paths.get(uri)).stream().collect(Collectors.joining("\n"));
-            StringBuilder cb = new StringBuilder(contents);
-
-
-            //String service = makeProperty("Service_app");
-            //replaceTemplate(cb, "[SERVICE]", service);
-
-            String model = makeProperty("Model");
-            replaceTemplate(cb, "[MODEL]", model);
-
-           /*
-            String manager = makeProperty("Manager_app");
-            replaceTemplate(cb, "[MANAGER]", manager);
-            */
-            Files.write(Paths.get("ci_autocomplete_" + TEMPLETE_TYPE + ".php"), cb.toString().getBytes());
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-    }
-
     private static void replaceTemplate(StringBuilder sb, String tag, String str) {
         int start = 0;
-        int end = 0;
         while ((start = sb.indexOf(tag, start)) > -1) {
-            end = start + tag.length() + 1;
+            int end = start + tag.length() + 1;
             sb.replace(start, end, str);
             start = end;
         }
     }
 
-    private static String makeProperty(String serviceClassName) {
-        //String path = "/Users/jwlee/pdtwork/sales_admin";
-        String path = "/Users/jwlee/wemakeprice/vagrant/wmp/www/gagamel_admin";
+    private static String makePropertyComment(String classType) {
 
-        List<ClassStruct> classes = listFiles(Paths.get(SOURCE_PATH))
-                .filter(p -> isHiddenFile(p))
-                .filter(p -> isClassFile(p))
+        List<ClassName> classes = listFiles(Paths.get(SOURCE_PATH))
+                .filter(p -> isHidden(p))
+                .filter(p -> isClass(p))
+                .filter(p -> isPhp(p))
                 .map(p -> convertClassStruct(p))
                 .collect(Collectors.toList());
 
@@ -83,35 +84,36 @@ public class CiHelper {
 
         grouping(classes, map);
 
-        //map.keySet().stream().forEach(s -> System.out.println(s + " : " + map.get(s)));
-        //map.keySet().stream().filter(s -> map.get(s).size() == 1).forEach(s -> System.out.println(s  + " " + map.get(s)));
-        map.keySet().stream().filter(s -> map.get(s).size() == 1).map(s -> map.get(s).get(0)).distinct().forEach(System.out::println);
+//        map.keySet().stream().forEach(s -> System.out.println(s + " : " + map.get(s)));
+//        map.keySet().stream().filter(s -> map.get(s).size() == 1).forEach(s -> System.out.println(s  + " " + map.get(s)));
+//        map.keySet().stream().filter(s -> map.get(s).size() == 1).map(s -> map.get(s).get(0)).distinct().forEach(System.out::println);
 
-        String content = map.keySet().stream()
-                .filter(key -> containsWithIgnoreCase(map.get(key), serviceClassName))
+        String propertyComment = map.keySet().stream()
+                .filter(key -> containsWithIgnoreCase(map.get(key), classType))
                 .map(key -> formatting(key))
                 .collect(Collectors.joining("\n"));
 
-        content = content + "\n";
+        // 마지막에 줄바꿈 하기 위해
+        propertyComment = propertyComment + "\n";
 
-        return content;
+        return propertyComment;
     }
 
-    private static boolean isHiddenFile(Path p) {
-        if(p.toString().indexOf(".git") > -1) {
+    private static boolean isHidden(Path path) {
+        if (path.toString().indexOf(".git") > -1) {
             return false;
         }
         return true;
     }
-    private static boolean isPhpFile(Path p) {
-        if(p.endsWith(".php")) {
-            return true;
-        }
-        return false;
+
+    private static boolean isPhp(Path p) {
+        PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:**/*.php");
+//        System.out.println(matcher.matches(p) +  " : " + p);
+        return matcher.matches(p);
     }
 
-    private static void grouping(List<ClassStruct> classes, Map<String, ArrayList<String>> map) {
-        for (ClassStruct cs : classes) {
+    private static void grouping(List<ClassName> classes, Map<String, ArrayList<String>> map) {
+        for (ClassName cs : classes) {
             ArrayList<String> parents = new ArrayList<>();
             if (cs.getParentClassName() == null || cs.getParentClassName().equals("")) {
                 continue;
@@ -130,7 +132,7 @@ public class CiHelper {
                 map.put(cs.getClassName(), ar);
             }
 
-            for(ClassStruct cs2 : classes) {
+            for(ClassName cs2 : classes) {
                 if(cs.getParentClassName().equals(cs2.getClassName())) {
                     map.get(cs.getClassName()).add(cs2.getParentClassName());
                 }else{
@@ -141,8 +143,8 @@ public class CiHelper {
         }
     }
 
-    private static void scan(List<ClassStruct> classeStructList, ArrayList<String> parentClassNameList, String currCs) {
-        for (ClassStruct cs : classeStructList) {
+    private static void scan(List<ClassName> classeStructList, ArrayList<String> parentClassNameList, String currCs) {
+        for (ClassName cs : classeStructList) {
             if (cs.getParentClassName() == null || cs.getParentClassName().equals("")) {
                 continue;
             }
@@ -158,23 +160,21 @@ public class CiHelper {
 
     private static boolean containsWithIgnoreCase(ArrayList<String> arr, String str) {
         for (String s : arr) {
-            if(s.equalsIgnoreCase(str)) {
+            if (s.equalsIgnoreCase(str)) {
                 return true;
             }
         }
         return false;
     }
 
-    private static String formatting(String s) {
+    private static String formatting(String className) {
 
-        StringBuilder sb = new StringBuilder(s);
-        if (TEMPLETE_TYPE.equals("admin")) {
-
+        StringBuilder sb = new StringBuilder(className);
+        if (TEMPLATE_TYPE.equals("admin")) {
             sb.insert(0, " * @property ");
-            sb.append(" $" + s);
-        } else if (TEMPLETE_TYPE.equals("sales")) {
-            StringBuilder sb2 = new StringBuilder(s);
-
+            sb.append(" $" + className);
+        } else if (TEMPLATE_TYPE.equals("sales")) {
+            StringBuilder sb2 = new StringBuilder(className);
             sb2.setCharAt(0, Character.toLowerCase(sb2.charAt(0)));
             sb.insert(0, " * @property ");
             sb.append(" $" + sb2.toString());
@@ -187,7 +187,7 @@ public class CiHelper {
 
     }
 
-    private static boolean isClassFile(Path p) {
+    private static boolean isClass(Path p) {
 
         try (Stream<String> lines = Files.lines(p, Charset.forName("iso8859_1"))) {
             return lines.anyMatch(s -> s.indexOf("class ") == 0);
@@ -197,8 +197,8 @@ public class CiHelper {
         return false;
     }
 
-    private static ClassStruct convertClassStruct(Path p) {
-        ClassStruct cs = null;
+    private static ClassName convertClassStruct(Path p) {
+        ClassName cs = null;
 
         try (Stream<String> lines = Files.lines(p, Charset.forName("iso8859_1")).filter(s -> s.indexOf("class") == 0)) {
             String line = lines.collect(Collectors.toList()).get(0);
@@ -217,7 +217,7 @@ public class CiHelper {
             }
 
 
-            cs = new ClassStruct(className, parentClassName);
+            cs = new ClassName(className, parentClassName);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -226,7 +226,7 @@ public class CiHelper {
         return cs;
     }
 
-    private static ClassStruct convertClassStruct(String s) {
+    private static ClassName convertClassStruct(String s) {
         int start = s.indexOf("class") + 5;
 
         int end = 0;
@@ -245,7 +245,7 @@ public class CiHelper {
         parentClassName = parentClassName.trim();
 
 
-        ClassStruct cs = new ClassStruct(className, parentClassName);
+        ClassName cs = new ClassName(className, parentClassName);
         return cs;
 
 
