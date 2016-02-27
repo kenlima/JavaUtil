@@ -1,4 +1,4 @@
-package com.kenlima.cihelper;
+package com.kenlima.ciautocomplete;
 
 import java.io.IOException;
 import java.net.URI;
@@ -14,7 +14,7 @@ import java.util.stream.Stream;
 /**
  * eclipse, phpstorm 에서 CodeIgniter 사용시 editor 에서 auto complete 기능을 제공하는 helper.php 를 생성해 준다
  */
-public class CiHelper {
+public class CiAutoCompleteMain {
 
     /**
      * admin, mng, biz, sales
@@ -24,19 +24,20 @@ public class CiHelper {
 
 
     public static void main(String[] args) {
-        String resourceName = "cihelper/ci_autocomplete_" + TEMPLATE_TYPE + ".php.template";
+
+        String resourceName = "ciautocomplete/ci_autocomplete_" + TEMPLATE_TYPE + ".php.template";
+
         try {
+
+            CiAutoCompleteMain main = new CiAutoCompleteMain();
             URI uri = ClassLoader.getSystemResource(resourceName).toURI();
 
             String templateString = Files.readAllLines(Paths.get(uri)).stream().collect(Collectors.joining("\n"));
             StringBuilder templateStrBuilder = new StringBuilder(templateString);
 
 
-            //String service = makePropertyComment("Service_app");
-            //replaceTemplate(cb, "[SERVICE]", service);
-
-            String model = makePropertyComment("Model");
-            replaceTemplate(templateStrBuilder, "[MODEL]", model);
+            String model = main.makePropertyComment("Model");
+            main.replaceTemplate(templateStrBuilder, "[MODEL]", model);
 
            /*
             String manager = makePropertyComment("Manager_app");
@@ -50,10 +51,10 @@ public class CiHelper {
 
     }
 
-    static Stream<Path> listFiles(Path path) {
+    public static Stream<Path> listFiles(Path path) {
         if (Files.isDirectory(path)) {
             try {
-                return Files.list(path).flatMap(CiHelper::listFiles);
+                return Files.list(path).flatMap(CiAutoCompleteMain::listFiles);
             } catch (Exception e) {
                 return Stream.empty();
             }
@@ -62,7 +63,7 @@ public class CiHelper {
         }
     }
 
-    private static void replaceTemplate(StringBuilder sb, String tag, String str) {
+    public void replaceTemplate(StringBuilder sb, String tag, String str) {
         int start = 0;
         while ((start = sb.indexOf(tag, start)) > -1) {
             int end = start + tag.length() + 1;
@@ -71,10 +72,10 @@ public class CiHelper {
         }
     }
 
-    private static String makePropertyComment(String classType) {
+    public String makePropertyComment(String classType) {
 
         List<ClassName> classes = listFiles(Paths.get(SOURCE_PATH))
-                .filter(p -> isHidden(p))
+                .filter(p -> !isGitProperty(p))
                 .filter(p -> isClass(p))
                 .filter(p -> isPhp(p))
                 .map(p -> convertClassStruct(p))
@@ -99,20 +100,20 @@ public class CiHelper {
         return propertyComment;
     }
 
-    private static boolean isHidden(Path path) {
+    public boolean isGitProperty(Path path) {
         if (path.toString().indexOf(".git") > -1) {
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
 
-    private static boolean isPhp(Path p) {
+    public static boolean isPhp(Path p) {
         PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:**/*.php");
 //        System.out.println(matcher.matches(p) +  " : " + p);
         return matcher.matches(p);
     }
 
-    private static void grouping(List<ClassName> classes, Map<String, ArrayList<String>> map) {
+    public void grouping(List<ClassName> classes, Map<String, ArrayList<String>> map) {
         for (ClassName cs : classes) {
             ArrayList<String> parents = new ArrayList<>();
             if (cs.getParentClassName() == null || cs.getParentClassName().equals("")) {
@@ -187,7 +188,7 @@ public class CiHelper {
 
     }
 
-    private static boolean isClass(Path p) {
+    private boolean isClass(Path p) {
 
         try (Stream<String> lines = Files.lines(p, Charset.forName("iso8859_1"))) {
             return lines.anyMatch(s -> s.indexOf("class ") == 0);
@@ -226,28 +227,4 @@ public class CiHelper {
         return cs;
     }
 
-    private static ClassName convertClassStruct(String s) {
-        int start = s.indexOf("class") + 5;
-
-        int end = 0;
-        String className = "";
-        String parentClassName = "";
-        if ((end = s.indexOf("extends", start)) > -1) {
-            className = s.substring(start, end);
-            start = end + 7;
-            end = s.length() - 1;
-
-            parentClassName = s.substring(start, end);
-        } else {
-            className = s.substring(start);
-        }
-        className = className.trim();
-        parentClassName = parentClassName.trim();
-
-
-        ClassName cs = new ClassName(className, parentClassName);
-        return cs;
-
-
-    }
 }

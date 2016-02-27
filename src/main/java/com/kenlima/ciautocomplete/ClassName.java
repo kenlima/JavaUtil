@@ -1,4 +1,4 @@
-package com.kenlima.cihelper;
+package com.kenlima.ciautocomplete;
 
 /**
  * Created by jwlee on 2016. 2. 24..
